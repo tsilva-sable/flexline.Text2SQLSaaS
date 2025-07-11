@@ -36,7 +36,6 @@ if not st.session_state.get("password_correct", False):
 
 
 # --- Initialize Both Clients ---
-@st.cache_resource
 def init_clients():
     """Initializes and returns both Text2SQL and Flexline clients."""
     try:
@@ -63,8 +62,8 @@ text2sql_client, flexline_client = init_clients()
 
 
 # --- Authenticate with Backend API ---
-@st.cache_data(show_spinner="Authenticating with backend API...")
 def authenticate_with_backend(_client):
+    """Authenticates the client with the backend API."""
     return _client.authenticate(
         username=st.secrets.saas_api.username, password=st.secrets.saas_api.password
     )
@@ -92,7 +91,7 @@ with st.form(key="sql_generation_form"):
         "Enter your question:",
         placeholder="e.g., What are the top 5 best-selling products in the last year?",
         height=100,
-        key="question_input",  # Add a key for stability
+        key="question_input",
     )
     generate_button = st.form_submit_button(
         label="Generate SQL Query", type="primary", use_container_width=True
