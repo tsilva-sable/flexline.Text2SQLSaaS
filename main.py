@@ -1,3 +1,5 @@
+import io
+
 import pandas as pd
 import streamlit as st
 
@@ -152,7 +154,24 @@ if st.session_state.results_df is not None:
             formatted_df[col] = formatted_df[col].apply(lambda x: f"{x:,}")
     st.dataframe(formatted_df, hide_index=True)
 
-    # --- CSV Export Functionality ---
+    # --- Excel Export Functionality ---
+    # Create an in-memory buffer
+    buffer = io.BytesIO()
+
+    # Write the original, unformatted dataframe to the buffer as an Excel file
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        st.session_state.results_df.to_excel(writer, index=False, sheet_name="Results")
+
+    st.download_button(
+        label="📄 Export to Excel",
+        data=buffer,
+        file_name="query_results.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
+
+    # You could even offer both options
+    # --- CSV Export Functionality (optional) ---
     csv_data = st.session_state.results_df.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📄 Export to CSV",
