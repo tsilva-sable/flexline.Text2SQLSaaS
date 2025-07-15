@@ -16,3 +16,4 @@ class QueryInfo(BaseModel):
     user: str
     userFlexline: str
     command: str | None = None
+    TimeOut: int = 60
