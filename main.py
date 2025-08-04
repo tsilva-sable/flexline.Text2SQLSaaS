@@ -1,4 +1,5 @@
 import io
+import re
 
 import pandas as pd
 import streamlit as st
@@ -123,20 +124,85 @@ if st.session_state.ai_response:
     st.success("✅ The generated query is flagged as **read-only** and is safe to run.")
 
     if st.button("Run Query and Get Results", type="primary"):
-        with st.spinner("Executing query via client's Lambda... ⚙️"):
+        # Set a threshold for the maximum number of records
+        MAX_RECORDS = 20000
+
+        with st.spinner("Checking query size... ⚙️"):
             try:
-                results = flexline_client.run(sql_query)
-                st.success("✅ Query executed successfully!")
-                if isinstance(results, list) and results:
-                    st.session_state.results_df = pd.DataFrame(results)
-                elif isinstance(results, dict):
-                    st.session_state.results_df = pd.DataFrame([results])
-                else:
-                    st.warning(
-                        "The query executed, but the data was empty or not in a table format."
+                # --- Improved Logic for Creating the Count Query ---
+                original_query = str(sql_query).strip()
+                query_for_count = original_query
+
+                # First, strip any trailing ORDER BY, LIMIT, or OFFSET clauses
+                query_for_count = re.sub(
+                    r"\s+(ORDER\s+BY|LIMIT|OFFSET)\s+.*$",
+                    "",
+                    query_for_count,
+                    flags=re.IGNORECASE | re.DOTALL,
+                ).strip()
+
+                # Now, handle the WITH clause (CTE) case
+                if query_for_count.upper().startswith("WITH"):
+                    # If it's a CTE, we don't wrap it. Instead, we replace the final SELECT.
+                    last_select_pos = query_for_count.upper().rfind("SELECT")
+
+                    # Ensure we are not grabbing a SELECT from a subquery within the CTE
+                    from_after_last_select_pos = query_for_count.upper().find(
+                        "FROM", last_select_pos
                     )
-                    st.write("Raw output:", results)
+
+                    if last_select_pos != -1 and from_after_last_select_pos != -1:
+                        # Replace the column list of the final SELECT with COUNT(*)
+                        count_select_clause = "SELECT COUNT(*) "
+                        query_for_count = (
+                            query_for_count[:last_select_pos]
+                            + count_select_clause
+                            + query_for_count[from_after_last_select_pos:]
+                        )
+                else:
+                    # If it's not a CTE, the safe approach is to wrap it
+                    query_for_count = f"SELECT COUNT(*) as record_count FROM ({query_for_count}) as subquery"
+
+                # 1. Execute the count query
+                count_results = flexline_client.run(query_for_count)
+
+                record_count = 0
+                # Extract the count from the result
+                if (
+                    count_results
+                    and isinstance(count_results, list)
+                    and count_results[0]
+                ):
+                    record_count = list(count_results[0].values())[0]
+
+                # 2. Check if the record count exceeds the threshold
+                if record_count > MAX_RECORDS:
+                    st.warning(
+                        f"This query will return approximately {record_count:,} records, which is too large to display directly. Please make your question more specific to narrow down the results."
+                    )
                     st.session_state.results_df = None
+
+                else:
+                    # 3. If the count is acceptable, run the original query
+                    st.info(
+                        f"Query will return {record_count:,} records. Fetching data..."
+                    )
+                    with st.spinner("Executing query... ⚙️"):
+                        # Use the original sql_query here, which still has the ORDER BY
+                        results = flexline_client.run(sql_query)
+                        st.success("✅ Query executed successfully!")
+
+                        if isinstance(results, list) and results:
+                            st.session_state.results_df = pd.DataFrame(results)
+                        elif isinstance(results, dict):
+                            st.session_state.results_df = pd.DataFrame([results])
+                        else:
+                            st.warning(
+                                "The query executed, but the data was empty or not in a table format."
+                            )
+                            st.write("Raw output:", results)
+                            st.session_state.results_df = None
+
             except FlexlineError as e:
                 st.error(f"Lambda Execution Failed: {e}")
             except Exception as e:

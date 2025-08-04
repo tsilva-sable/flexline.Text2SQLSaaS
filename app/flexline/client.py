@@ -102,7 +102,6 @@ class FlexlineClient:
         return self._invoke_lambda("FlexlineData", body=body_payload)
 
     def run(self, sql_query: str) -> list[dict]:
-        """The main method to execute the full query process."""
         logger.info("Starting Flexline Lambda execution run.")
         token = self._get_auth_token()
         query_info = self._get_route(token)
