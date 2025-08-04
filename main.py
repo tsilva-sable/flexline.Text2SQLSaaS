@@ -3,9 +3,20 @@ import re
 
 import pandas as pd
 import streamlit as st
+import toml
 
 from app.flexline.client import FlexlineClient, FlexlineError
 from app.text2sql.client import Text2SQLClient
+
+
+def get_project_version():
+    try:
+        with open("pyproject.toml", "r") as f:
+            pyproject_data = toml.load(f)
+        return pyproject_data["project"]["version"]
+    except (FileNotFoundError, KeyError):
+        return "unknown"
+
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -77,7 +88,10 @@ if not authenticate_with_backend(text2sql_client):
     st.stop()
 
 # --- Main App UI ---
-st.title("Natural Language to SQL Query")
+APP_VERSION = get_project_version()
+st.title(
+    f"Natural Language to SQL Query (v{APP_VERSION})"
+)  # <--- Display version in title
 st.markdown(f"**Workspace:** `{st.secrets.saas_api.workspace_id}`")
 
 # --- Initialize Session State ---
@@ -129,42 +143,41 @@ if st.session_state.ai_response:
 
         with st.spinner("Checking query size... ⚙️"):
             try:
-                # --- Improved Logic for Creating the Count Query ---
+                # --- Final Corrected Logic for Count Query Creation ---
                 original_query = str(sql_query).strip()
-                query_for_count = original_query
 
-                # First, strip any trailing ORDER BY, LIMIT, or OFFSET clauses
+                # 1. Strip any trailing ORDER BY, LIMIT, or OFFSET clauses
                 query_for_count = re.sub(
                     r"\s+(ORDER\s+BY|LIMIT|OFFSET)\s+.*$",
                     "",
-                    query_for_count,
+                    original_query,
                     flags=re.IGNORECASE | re.DOTALL,
                 ).strip()
 
-                # Now, handle the WITH clause (CTE) case
+                # 2. Build the final count query, ensuring the count is aliased
+                final_count_query = ""
                 if query_for_count.upper().startswith("WITH"):
-                    # If it's a CTE, we don't wrap it. Instead, we replace the final SELECT.
+                    # If it's a CTE, replace the last SELECT's columns with an aliased COUNT(*)
                     last_select_pos = query_for_count.upper().rfind("SELECT")
 
-                    # Ensure we are not grabbing a SELECT from a subquery within the CTE
-                    from_after_last_select_pos = query_for_count.upper().find(
-                        "FROM", last_select_pos
-                    )
-
-                    if last_select_pos != -1 and from_after_last_select_pos != -1:
-                        # Replace the column list of the final SELECT with COUNT(*)
-                        count_select_clause = "SELECT COUNT(*) "
-                        query_for_count = (
-                            query_for_count[:last_select_pos]
-                            + count_select_clause
-                            + query_for_count[from_after_last_select_pos:]
+                    if last_select_pos > -1:
+                        from_after_last_select_pos = query_for_count.upper().find(
+                            "FROM", last_select_pos
                         )
-                else:
-                    # If it's not a CTE, the safe approach is to wrap it
-                    query_for_count = f"SELECT COUNT(*) as record_count FROM ({query_for_count}) as subquery"
+                        if from_after_last_select_pos > -1:
+                            final_count_query = (
+                                query_for_count[:last_select_pos]
+                                + "SELECT COUNT(*) as record_count "  # ADDED ALIAS
+                                + query_for_count[from_after_last_select_pos:]
+                            )
 
-                # 1. Execute the count query
-                count_results = flexline_client.run(query_for_count)
+                # If it's not a CTE or the CTE logic failed, wrap it with an alias
+                if not final_count_query:
+                    final_count_query = f"SELECT COUNT(*) as record_count FROM ({query_for_count}) as subquery"
+
+                # 3. Execute the count query
+                # With your change to _process_query, this will correctly append "for json path"
+                count_results = flexline_client.run(final_count_query)
 
                 record_count = 0
                 # Extract the count from the result
@@ -173,9 +186,10 @@ if st.session_state.ai_response:
                     and isinstance(count_results, list)
                     and count_results[0]
                 ):
-                    record_count = list(count_results[0].values())[0]
+                    # The key will now reliably be 'record_count'
+                    record_count = count_results[0].get("record_count", 0)
 
-                # 2. Check if the record count exceeds the threshold
+                # 4. Check if the record count exceeds the threshold
                 if record_count > MAX_RECORDS:
                     st.warning(
                         f"This query will return approximately {record_count:,} records, which is too large to display directly. Please make your question more specific to narrow down the results."
@@ -183,12 +197,11 @@ if st.session_state.ai_response:
                     st.session_state.results_df = None
 
                 else:
-                    # 3. If the count is acceptable, run the original query
+                    # 5. If the count is acceptable, run the original query
                     st.info(
                         f"Query will return {record_count:,} records. Fetching data..."
                     )
                     with st.spinner("Executing query... ⚙️"):
-                        # Use the original sql_query here, which still has the ORDER BY
                         results = flexline_client.run(sql_query)
                         st.success("✅ Query executed successfully!")
 
