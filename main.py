@@ -1,11 +1,11 @@
 import io
-import re
 
 import pandas as pd
 import streamlit as st
 import toml
 
 from app.flexline.client import FlexlineClient, FlexlineError
+from app.flexline.utils import generate_count_query
 from app.text2sql.client import Text2SQLClient
 
 
@@ -139,45 +139,18 @@ if st.session_state.ai_response:
 
     if st.button("Run Query and Get Results", type="primary"):
         # Set a threshold for the maximum number of records
-        MAX_RECORDS = 20000
+        MAX_RECORDS = 10000
 
         with st.spinner("Checking query size... ⚙️"):
             try:
                 # --- Final Corrected Logic for Count Query Creation ---
-                original_query = str(sql_query).strip()
-
-                # 1. Strip any trailing ORDER BY, LIMIT, or OFFSET clauses
-                query_for_count = re.sub(
-                    r"\s+(ORDER\s+BY|LIMIT|OFFSET)\s+.*$",
-                    "",
-                    original_query,
-                    flags=re.IGNORECASE | re.DOTALL,
-                ).strip()
-
-                # 2. Build the final count query, ensuring the count is aliased
-                final_count_query = ""
-                if query_for_count.upper().startswith("WITH"):
-                    # If it's a CTE, replace the last SELECT's columns with an aliased COUNT(*)
-                    last_select_pos = query_for_count.upper().rfind("SELECT")
-
-                    if last_select_pos > -1:
-                        from_after_last_select_pos = query_for_count.upper().find(
-                            "FROM", last_select_pos
-                        )
-                        if from_after_last_select_pos > -1:
-                            final_count_query = (
-                                query_for_count[:last_select_pos]
-                                + "SELECT COUNT(*) as record_count "  # ADDED ALIAS
-                                + query_for_count[from_after_last_select_pos:]
-                            )
-
-                # If it's not a CTE or the CTE logic failed, wrap it with an alias
-                if not final_count_query:
-                    final_count_query = f"SELECT COUNT(*) as record_count FROM ({query_for_count}) as subquery"
+                final_count_query = generate_count_query(sql_query)
 
                 # 3. Execute the count query
                 # With your change to _process_query, this will correctly append "for json path"
+                print(final_count_query)
                 count_results = flexline_client.run(final_count_query)
+                print(count_results)
 
                 record_count = 0
                 # Extract the count from the result
@@ -187,7 +160,7 @@ if st.session_state.ai_response:
                     and count_results[0]
                 ):
                     # The key will now reliably be 'record_count'
-                    record_count = count_results[0].get("record_count", 0)
+                    record_count = count_results[0].get("total_rows", 0)
 
                 # 4. Check if the record count exceeds the threshold
                 if record_count > MAX_RECORDS:
