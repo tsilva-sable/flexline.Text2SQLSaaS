@@ -51,7 +51,7 @@ class Text2SQLClient:
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
-        '''        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get workspace details: {e}")
             return None
 
@@ -70,7 +70,7 @@ class Text2SQLClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get user details: {e}")
-            return None''
+            return None
 
     def get_sql(self, question: str) -> dict | None:
         """
