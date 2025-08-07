@@ -38,6 +38,23 @@ class Text2SQLClient:
             logger.error(f"Failed to authenticate with SaaS API: {e}")
             return False
 
+    def get_workspace_details(self) -> dict | None:
+        """Fetches details for the configured workspace."""
+        if not self.token:
+            logger.error("Authentication token not found.")
+            return None
+
+        url = f"{self.base_url}/api/workspace/{self.workspace_id}"
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get workspace details: {e}")
+            return None
+
     def get_sql(self, question: str) -> dict | None:
         """
         Calls the AI service to get the SQL query.

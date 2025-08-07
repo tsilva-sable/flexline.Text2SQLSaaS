@@ -157,7 +157,7 @@ wheels = [
 
 [[package]]
 name = "flexline-text2sqlsaas"
-version = "0.1.0"
+version = "0.2.1"
 source = { virtual = "." }
 dependencies = [
     { name = "boto3" },
@@ -166,6 +166,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "streamlit" },
+    { name = "streamlit-browser-storage" },
 ]
 
 [package.metadata]
@@ -176,6 +177,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "streamlit", specifier = ">=1.46.1" },
+    { name = "streamlit-browser-storage", specifier = ">=0.3.6" },
 ]
 
 [[package]]
@@ -779,6 +781,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bd/7e/c7499c447b7021657fa5c851091072c1c7a26f1dda0369c21c0243fc35e7/streamlit-1.46.1.tar.gz", hash = "sha256:2cc4ad01cfeded9ad953a21829eb879b90aa77af4068c68397411c2d5c8862cf", size = 9651018 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/84/3b/35400175788cdd6a43c90dce1e7f567eb6843a3ba0612508c0f19ee31f5f/streamlit-1.46.1-py3-none-any.whl", hash = "sha256:dffa373230965f87ccc156abaff848d7d731920cf14106f3b99b1ea18076f728", size = 10051346 },
+]
+
+[[package]]
+name = "streamlit-browser-storage"
+version = "0.3.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "streamlit" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/38/3863683c4a769bca4f72e7139c72f235fa5fe442620cff2676159ce64bb3/streamlit_browser_storage-0.3.6-py3-none-any.whl", hash = "sha256:65d87e1826f504f234b8fc11ce008a7a93d0aaadea21ac7958bb7b16d70350e0", size = 949051 },
 ]
 
 [[package]]
