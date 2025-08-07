@@ -51,9 +51,26 @@ class Text2SQLClient:
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
+        '''        except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get workspace details: {e}")
             return None
+
+    def get_user_me(self) -> dict | None:
+        """Fetches details for the current user."""
+        if not self.token:
+            logger.error("Authentication token not found.")
+            return None
+
+        url = f"{self.base_url}/api/user/me"
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get user details: {e}")
+            return None''
 
     def get_sql(self, question: str) -> dict | None:
         """

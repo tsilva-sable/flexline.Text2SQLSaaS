@@ -71,12 +71,19 @@ APP_VERSION = get_project_version()
 if "workspace_details" not in st.session_state or st.session_state.workspace_details is None:
     st.session_state.workspace_details = text2sql_client.get_workspace_details()
 
+if "user_email" not in st.session_state or st.session_state.user_email is None:
+    user_details = text2sql_client.get_user_me()
+    st.session_state.user_email = user_details.get("email") if user_details else "unknown"
+
 # Ensure workspace_details is always a dictionary, even if the API call failed
 workspace_details = st.session_state.workspace_details if st.session_state.workspace_details is not None else {}
 workspace_name = workspace_details.get("name", "Unknown")
 updated_at = format_timestamp(workspace_details.get("updated_at"))
 
 st.title(f"Natural Language to SQL Query (v{APP_VERSION})")
+
+st.markdown(f"<p style='text-align: right;'>Logged in as: {st.session_state.user_email}</p>", unsafe_allow_html=True)
+
 st.markdown(f"**Workspace:** {workspace_name} (`{st.secrets.saas_api.workspace_id}`)")
 st.caption(f"Last updated: {updated_at}")
 
